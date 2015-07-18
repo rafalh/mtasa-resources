@@ -33,13 +33,13 @@ addEventHandler ( "onClientPlayerVoiceStart", root,
 			return
 		end
 		
-		setElementData ( source, DATA_NAME, VOICE_CHATTING, false )
+		setElementData ( source, DATA_NAME, isPlayerVoiceMuted ( source ) and VOICE_MUTED or VOICE_CHATTING, false )
 	end
 )
 
 addEventHandler ( "onClientPlayerVoiceStop", root,
 	function()
-		setElementData ( source, DATA_NAME, VOICE_IDLE, false )
+		setElementData ( source, DATA_NAME, isPlayerVoiceMuted ( source ) and VOICE_MUTED or VOICE_IDLE, false )
 	end
 )
 
@@ -126,6 +126,7 @@ addCommandHandler ( "unmutevoice",
 )
 
 --Scoreboard/muted player list hook
+local g_ScoreboardEventsAdded = false
 
 addEventHandler ( "onClientResourceStart", resourceRoot,
 	function()
@@ -137,6 +138,7 @@ addEventHandler ( "onClientResourceStart", resourceRoot,
 				setTimer ( call, 50, 1, getResourceFromName"scoreboard", "scoreboardAddColumn", DATA_NAME, 30, "Voice", 1 )
 				addEventHandler ( "onClientPlayerScoreboardClick", root, scoreboardClick )
 				addEventHandler ( "onClientPlayerJoin", root, handleJoinedPlayer )
+				g_ScoreboardEventsAdded = true
 			end
 			
 			local notifyServerPlayers = {}
@@ -156,6 +158,15 @@ addEventHandler ( "onClientResourceStart", resourceRoot,
 		end
 	end
 )
+
+addEventHandler ( "onClientResourceStart", root, function(res)
+	if(getResourceName(res) ~= 'scoreboard') then return end
+	setTimer ( call, 50, 1, getResourceFromName"scoreboard", "scoreboardAddColumn", DATA_NAME, 30, "Voice", 1 )
+	if(not g_ScoreboardEventsAdded) then
+		addEventHandler("onClientPlayerScoreboardClick", root, scoreboardClick)
+		addEventHandler("onClientPlayerJoin", root, handleJoinedPlayer)
+	end
+end)
 
 function handleJoinedPlayer()
 	player = source

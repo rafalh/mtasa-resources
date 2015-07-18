@@ -58,7 +58,7 @@ function dxDrawVoiceLabel ( player, index, color )
 	local sx, sy = guiGetScreenSize ()
 	local scale = sy / 800
 	local spacing = ( ICON_LINE * scale )
-	local px, py = sx - 200, sy * 0.7 + spacing * index
+	local px, py = sx - 200, sy * 0.5 + spacing * index
 	local icon = ICON_DIMENSIONS * scale
 
 	dxDrawImage ( px, py, icon, icon, ICON_PATH, 0, 0, 0, color, false )
@@ -66,8 +66,8 @@ function dxDrawVoiceLabel ( player, index, color )
 	px = px + spacing
 
 	-- shadows
-	dxDrawText ( getPlayerName ( player ), px + 1, py + 1, px, py, ICON_TEXT_SHADOW, scale )
+	dxDrawText ( getPlayerName ( player ):gsub('#%x%x%x%x%x%x', ''), px + 1, py + 1, px, py, ICON_TEXT_SHADOW, scale )
 	-- text
-	dxDrawText ( getPlayerName ( player ), px, py, px, py, color, scale )
+	dxDrawText ( getPlayerName ( player ), px, py, px, py, color, scale, 'default', 'left', 'top', false, false, false, true )
 end
 
