@@ -3,7 +3,32 @@ DestructionDerby.__index = DestructionDerby
 
 DestructionDerby:register('Destruction derby')
 
+function DestructionDerby:isDmWinningVeh ( veh_type )
+	veh_type = tonumber ( veh_type )
+	return ( veh_type == 520 or veh_type == 425 or veh_type == 464 or veh_type == 447 )
+end
+
+function DestructionDerby:isDeathMatch ()
+	local mapName = g_MapInfo.name
+	local mapType = mapName:match("^%[(%w+)%].+$")
+	if(mapType) then
+		return (mapType:lower() == "dm")
+	end
+	
+	for i, pickup in ipairs ( getElementsByType ( "racepickup" ) ) do
+		if ( getElementData ( pickup, "type" ) == "vehiclechange" ) then
+			local veh_type = tonumber ( getElementData ( pickup, "vehicle" ) )
+			if ( self:isDmWinningVeh ( veh_type ) ) then
+				return true
+			end
+		end
+	end
+	
+	return false
+end
+
 function DestructionDerby:isApplicable()
+	self.dm = self:isDeathMatch ()
 	return not RaceMode.checkpointsExist() and RaceMode.getMapOption('respawn') == 'none'
 end
 
@@ -33,7 +58,7 @@ end
 function DestructionDerby:onPlayerWasted(player)
 	if isActivePlayer(player) then
 		self:handleFinishActivePlayer(player)
-		if getActivePlayerCount() <= 1 then
+		if getActivePlayerCount() <= ( self.dm and 0 or 1 ) then
 			RaceMode.endMap()
 		else
 			TimerManager.createTimerFor("map",player):setTimer(clientCall, 2000, 1, player, 'Spectate.start', 'auto')
@@ -46,12 +71,14 @@ end
 function DestructionDerby:onPlayerQuit(player)
 	if isActivePlayer(player) then
 		self:handleFinishActivePlayer(player)
-		if getActivePlayerCount() <= 1 then
+		if getActivePlayerCount() <= ( self.dm and 0 or 1 ) then
 			RaceMode.endMap()
 		end
 	end
 end
 
+addEvent( "onPlayerWinDD" )
+addEvent( "onPlayerFinishDD" )
 function DestructionDerby:handleFinishActivePlayer(player)
 	-- Update ranking board for player being removed
 	if not self.rankingBoard then
@@ -60,21 +87,27 @@ function DestructionDerby:handleFinishActivePlayer(player)
 	end
 	local timePassed = self:getTimePassed()
 	self.rankingBoard:add(player, timePassed)
+	triggerEvent("onPlayerFinishDD", player, self:getPlayerRank(player), timePassed)
 	-- Do remove
-	local rank = self:getPlayerRank(player)
 	finishActivePlayer(player)
-	if rank and rank > 1 then
-		triggerEvent( "onPlayerFinishDD",player,tonumber( rank ) )
-	end
 	-- Update ranking board if one player left
 	local activePlayers = getActivePlayers()
 	if #activePlayers == 1 then
+		triggerEvent("onPlayerWinDD", activePlayers[1], timePassed)
+		--triggerEvent("onPlayerFinishDD", activePlayers[1], self:getPlayerRank(activePlayers[1]), timePassed)
 		self.rankingBoard:add(activePlayers[1], timePassed)
 		showMessage(getPlayerName(activePlayers[1]) .. ' is the final survivor!', 0, 255, 0)
-		triggerEvent( "onPlayerWinDD",activePlayers[1] )
 	end
 end
 
+function DestructionDerby:onPlayerPickUpRacePickup ( pickupID, type, vehicle )
+	if ( self.dm and self:isDmWinningVeh ( vehicle ) ) then
+		if ( getActivePlayerCount () == 1 ) then
+			RaceMode.endMap ()
+		end
+		self.dm = false -- end the game if one player left
+	end
+end
 
 
 ------------------------------------------------------------

@@ -21,6 +21,15 @@ g_Vehicles = {}				-- { player = vehicle }
 
 local unloadedPickups = {}
 
+g_Images = {
+	countdown = { path = "img/countdown_%d.png", w = 380, h = 380/528*384 }
+}
+
+local _spawnPlayer = spawnPlayer
+function spawnPlayer ( player, x, y, z, rotation, skinID, ... )
+	skinID = getElementData ( player, "fixed_skin" ) or skinID
+	return _spawnPlayer ( player, x, y, z, rotation, skinID, ... )
+end
 
 addEventHandler('onPlayerJoin', g_Root,
 	function()
@@ -74,11 +83,11 @@ addEventHandler('onSettingChange', g_ResRoot,
 	function(name, oldvalue, value, player)
 		outputDebug( 'MISC', 'Setting changed: ' .. tostring(name) .. '  value:' .. tostring(value) .. '  value:' .. tostring(oldvalue).. '  by:' .. tostring(player and getPlayerName(player) or 'n/a') )
 		cacheGameOptions()
-		if g_SavedMapSettings then
+		--[[if g_SavedMapSettings and exports.mapmanager:getRunningGamemodeMap () then
 			cacheMapOptions(g_SavedMapSettings)
 			clientCall(g_Root,'updateOptions', g_GameOptions, g_MapOptions)
 			updateGhostmode()
-		end
+		end]]
 	end
 )
 
@@ -150,6 +159,8 @@ function cacheMapOptions(map)
 	g_MapOptions.firewater		= map.firewater == 'true'
 	g_MapOptions.classicchangez	= map.classicchangez == 'true'
 	g_MapOptions.hunterminigun	= map.hunterminigun == 'true'
+	
+	g_MapOptions.compmode       = map.compmode  == 'true'
 
 	outputDebug("MISC", "duration = "..g_MapOptions.duration.."  respawn = "..g_MapOptions.respawn.."  respawntime = "..tostring(g_MapOptions.respawntime).."  time = "..g_MapOptions.time.."  weather = "..g_MapOptions.weather)
 	
@@ -158,6 +169,9 @@ function cacheMapOptions(map)
 	end
 	if g_MapOptions.weather then
 		setWeather(g_MapOptions.weather)
+	end
+	if ( g_MapOptions.compmode and not get ( getResourceName ( exports.mapmanager:getRunningGamemodeMap () )..".waveheight" ) ) then
+		setWaveHeight ( 0.5 )
 	end
 	
 	-- Set ghostmode from g_GameOptions if not defined in the map, or map override not allowed
@@ -240,6 +254,7 @@ function loadMap(res)
 	g_SavedMapSettings.classicchangez	= map.classicchangez
 	g_SavedMapSettings.firewater		= map.firewater
 	g_SavedMapSettings.hunterminigun	= map.hunterminigun
+	g_SavedMapSettings.compmode         = map.compmode
 
 	cacheMapOptions(g_SavedMapSettings)
 
@@ -359,12 +374,12 @@ function launchRace()
 end
 
 g_RaceStartCountdown = Countdown.create(6, launchRace)
-g_RaceStartCountdown:useImages('img/countdown_%d.png', 474, 204)
+g_RaceStartCountdown:useImages(g_Images.countdown.path, g_Images.countdown.w, g_Images.countdown.h)
 g_RaceStartCountdown:enableFade(true)
-g_RaceStartCountdown:addClientHook(3, 'playSoundFrontEnd', 44)
-g_RaceStartCountdown:addClientHook(2, 'playSoundFrontEnd', 44)
-g_RaceStartCountdown:addClientHook(1, 'playSoundFrontEnd', 44)
-g_RaceStartCountdown:addClientHook(0, 'playSoundFrontEnd', 45)
+g_RaceStartCountdown:addClientHook(3, "triggerEvent", "onClientRaceCountdown", g_Root, 3)
+g_RaceStartCountdown:addClientHook(2, "triggerEvent", "onClientRaceCountdown", g_Root, 2)
+g_RaceStartCountdown:addClientHook(1, "triggerEvent", "onClientRaceCountdown", g_Root, 1)
+g_RaceStartCountdown:addClientHook(0, "triggerEvent", "onClientRaceCountdown", g_Root, 0)
 
 
 
@@ -675,6 +690,7 @@ addEventHandler('onPlayerPickUpRacePickupInternal', g_Root,
 			end
 		end
 		triggerEvent('onPlayerPickUpRacePickup', source, pickupID, pickup.type, pickup.vehicle)
+		g_CurrentRaceMode:onPlayerPickUpRacePickup ( pickupID, pickup.type, pickup.vehicle )
 	end
 )
 
@@ -766,6 +782,7 @@ addEventHandler('onGamemodeMapStop', g_Root,
 
 -- Called from:
 --      nowhere
+addEvent ( "onPollDraw" )
 addEventHandler('onPollDraw', g_Root,
 	function()
 		outputDebugString('Poll ended in a draw')
@@ -802,7 +819,7 @@ addEventHandler('onGamemodeStart', g_ResRoot,
 )
 
 function addRaceScoreboardColumns()
-	exports.scoreboard:addScoreboardColumn('race rank')
+	exports.scoreboard:addScoreboardColumn('race rank', g_Root, false, 60)
 	exports.scoreboard:addScoreboardColumn('checkpoint')
 	exports.scoreboard:addScoreboardColumn('state')
 end
@@ -843,7 +860,7 @@ addEventHandler('onPlayerQuit', g_Root,
 			outputDebugString('Stopping map')
 			triggerEvent('onGamemodeMapStop', g_Root, exports.mapmanager:getRunningGamemodeMap())
 		else
-			if stateAllowsPostFinish() and g_CurrentRaceMode.running then
+			if stateAllowsPostFinish() and g_CurrentRaceMode and g_CurrentRaceMode.running then
 				gotoState('EveryoneFinished')
 				RaceMode.endMap()
 			end
@@ -877,25 +894,36 @@ end
 
 addEvent('onRequestKillPlayer', true)
 addEventHandler('onRequestKillPlayer', g_Root,
-    function()
+    function(water)
 		if checkClient( false, source, 'onRequestKillPlayer' ) then return end
         local player = source
         if stateAllowsKillPlayer() then
-            setElementHealth(player, 0)
+            if water then
+                killPed ( player, nil, 53 )
+            else killPed ( player ) end
             toggleAllControls(player,false, true, false)
         end
     end
 )
 
+function isGhostmodeEnabled()
+	return g_MapOptions and g_MapOptions.ghostmode
+end
+
+function setGhostmodeEnabled(gm)
+	if(not g_MapOptions) then return end
+	g_MapOptions.ghostmode = gm
+	updateGhostmode()
+end
+
 function toggleServerGhostmode(player)
 	if not _TESTING and not isPlayerInACLGroup(player, g_GameOptions.admingroup) then
 		return
 	end
-	g_MapOptions.ghostmode = not g_MapOptions.ghostmode
-	g_GameOptions.ghostmode = not g_GameOptions.ghostmode
-	set('*ghostmode', g_GameOptions.ghostmode and 'true' or 'false' )
-	updateGhostmode()
-	if g_MapOptions.ghostmode then
+	
+	setGhostmodeEnabled(not isGhostmodeEnabled())
+	
+	if isGhostmodeEnabled() then
 		outputChatBox('Ghostmode enabled by ' .. getPlayerName(player), g_Root, 0, 240, 0)
 	else
 		outputChatBox('Ghostmode disabled by ' .. getPlayerName(player), g_Root, 240, 0, 0)
@@ -909,7 +937,7 @@ function updateGhostmode()
 		local vehicle = RaceMode.getPlayerVehicle(player)
 		if vehicle then
 			Override.setCollideOthers( "ForGhostCollisions", vehicle, g_MapOptions.ghostmode and 0 or nil )
-			Override.setAlpha( "ForGhostAlpha", {player, vehicle}, g_MapOptions.ghostmode and g_GameOptions.ghostalpha and 180 or nil )
+			Override.setAlpha( "ForGhostAlpha", {player, vehicle}, g_MapOptions.ghostmode and g_GameOptions.ghostalpha and 102 or nil )
 		end
 	end
 end
@@ -1312,9 +1340,18 @@ TimerManager.createTimerFor("raceresource","integrity"):setTimer(
 		-- Make sure all vehicles are valid - Invalid vehicles really mess up the race script
 		for player,vehicle in pairs(g_Vehicles) do
 			if not isElement(vehicle) then
-				fail = true
-				outputRace( "Race integrity test fail: Invalid vehicle for player " .. tostring(getPlayerName(player)) )
-				kickPlayer( player, nil, "Connection terminated to protect the core" )
+				--fail = true
+				if(not isElement(player)) then
+					outputDebugString("Invalid player "..tostring(player), 2)
+					g_Vehicles[player] = nil
+				else
+					g_Vehicles[player] = getPedOccupiedVehicle ( player )
+					if ( g_Vehicles[player] ) then
+						outputRace( "Race integrity test fail: Invalid vehicle for player " .. tostring(getPlayerName(player)) .. "! Current vehicle: "..getVehicleName ( g_Vehicles[player] ).."." )
+					else
+						setElementHealth ( player, 0 )
+					end
+				end
 			end
 		end
 

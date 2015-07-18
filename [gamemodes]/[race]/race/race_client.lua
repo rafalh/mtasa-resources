@@ -1,15 +1,32 @@
 ﻿g_Root = getRootElement()
 g_ResRoot = getResourceRootElement(getThisResource())
 g_Me = getLocalPlayer()
-g_ArmedVehicleIDs = table.create({ 425, 447, 520, 430, 464, 432 }, true)
+g_ArmedVehicleIDs = table.create({ 425, 447, 520, 430, 464, 432, 476 }, true)
 g_WaterCraftIDs = table.create({ 539, 460, 417, 447, 472, 473, 493, 595, 484, 430, 453, 452, 446, 454 }, true)
 g_ModelForPickupType = { nitro = 2221, repair = 2222, vehiclechange = 2223 }
 g_HunterID = 425
+g_NextMap = false
 
 g_Checkpoints = {}
 g_Pickups = {}
 g_VisiblePickups = {}
 g_Objects = {}
+
+g_ScreenWidth, g_ScreenHeight = guiGetScreenSize()
+g_Images = {
+	title = { path = "img/title.jpg", w = 0.8*g_ScreenHeight, h = 600/800*0.8*g_ScreenHeight },
+	specprev = { path = "img/specprev.png", w = 82, h = 82/167*180 },
+	specprev_hi = { path = "img/specprev_hi.png", w = 82, h = 82/167*180 },
+	specnext = { path = "img/specnext.png", w = 82, h = 82/167*180 },
+	specnext_hi = { path = "img/specnext_hi.png", w = 82, h = 82/167*180 },
+	timeleft = { path = "img/timeleft.png", w = 100, h = 100/100*24 },
+	travelling = { path = "img/travelling.png", w = 640, h = 480 },
+	hurry = { path = "img/hurry.png", w = resAdjust(370), h = resAdjust(112) },
+	loading = { path = "img/loading.gif" }
+}
+
+addEvent("onClientPlayerReachCheckpoint")
+addEvent("onClientRaceCountdown")
 
 addEventHandler('onClientResourceStart', g_ResRoot,
 	function()
@@ -23,28 +40,30 @@ addEventHandler('onClientResourceStart', g_ResRoot,
 			ranksuffix = dxText:create('st', screenWidth - 40, screenHeight - 86, false, 'bankgothic', 1),
 			checkpoint = dxText:create('0/0', screenWidth - 15, screenHeight - 54, false, 'bankgothic', 0.8, 'right'),
 			timepassed = dxText:create('0:00:00', screenWidth - 10, screenHeight - 25, false, 'bankgothic', 0.7, 'right'),
-			mapdisplay = dxText:create('Map: none', 2, screenHeight - dxGetFontHeight(0.7, 'bankgothic')/2, false, 'bankgothic', 0.7, 'left')
+			mapdisplay = dxText:create('Map: none', 2, screenHeight - dxGetFontHeight(0.7, 'bankgothic')*2.00, false, 'bankgothic', 0.7, 'left'),
+			nextdisplay = dxText:create('Next map: not set', 2, screenHeight - dxGetFontHeight(0.7, 'bankgothic')*1.25, false, 'bankgothic', 0.7, 'left'),
+			spectators = dxText:create('Spectators: none', 2, screenHeight - dxGetFontHeight(0.7, 'bankgothic')*0.5, false, 'bankgothic', 0.7, 'left'),
 		}
 		g_dxGUI.ranknum:type('stroke', 2, 0, 0, 0, 255)
 		g_dxGUI.ranksuffix:type('stroke', 2, 0, 0, 0, 255)
 		g_dxGUI.checkpoint:type('stroke', 1, 0, 0, 0, 255)
 		g_dxGUI.timepassed:type('stroke', 1, 0, 0, 0, 255)
+		g_dxGUI.mapdisplay:wordWrap(false)
+		g_dxGUI.nextdisplay:wordWrap(false)
+		g_dxGUI.spectators:wordWrap(false)
+		g_dxGUI.spectators:colorCoded(true)
 		g_GUI = {
-			timeleftbg = guiCreateStaticImage(screenWidth/2-108/2, 15, 108, 24, 'img/timeleft.png', false, nil),
+			timeleftbg = guiCreateStaticImage(screenWidth/2-g_Images.timeleft.w/2, 15, g_Images.timeleft.w, g_Images.timeleft.h, g_Images.timeleft.path, false, nil),
 			timeleft = guiCreateLabel(screenWidth/2-108/2, 19, 108, 30, '', false),
-			healthbar = FancyProgress.create(250, 1000, 'img/progress_health_bg.png', -65, 60, 123, 30, 'img/progress_health.png', 8, 8, 108, 15),
-			speedbar = FancyProgress.create(0, 1.5, 'img/progress_speed_bg.png', -65, 90, 123, 30, 'img/progress_speed.png', 8, 8, 108, 15),
 		}
 		guiSetFont(g_GUI.timeleft, 'default-bold-small')
 		guiLabelSetHorizontalAlign(g_GUI.timeleft, 'center')
-		g_GUI.speedbar:setProgress(0)
 		
-		hideGUIComponents('timeleftbg', 'timeleft', 'healthbar', 'speedbar', 'ranknum', 'ranksuffix', 'checkpoint', 'timepassed')
+		hideGUIComponents('timeleftbg', 'timeleft', 'ranknum', 'ranksuffix', 'checkpoint', 'timepassed')
         RankingBoard.precreateLabels(10)
 		
 		-- set update handlers
 		g_PickupStartTick = getTickCount()
-		addEventHandler('onClientRender', g_Root, updateBars)
 		g_WaterCheckTimer = setTimer(checkWater, 1000, 0)
 		
 		-- load pickup models and textures
@@ -61,8 +80,8 @@ addEventHandler('onClientResourceStart', g_ResRoot,
 		end
 
         -- Init presentation screens
-        TravelScreen.init()
         TitleScreen.init()
+        TravelScreen.init()
 
         -- Show title screen now
         TitleScreen.show()
@@ -81,13 +100,13 @@ TitleScreen.startTime = 0
 function TitleScreen.init()
 	local screenWidth, screenHeight = guiGetScreenSize()
 	local adjustY = math.clamp( -30, -15 + (-30- -15) * (screenHeight - 480)/(900 - 480), -15 );
-	g_GUI['titleImage'] = guiCreateStaticImage(screenWidth/2-256, screenHeight/2-256+adjustY, 512, 512, 'img/title.png', false)
-	g_dxGUI['titleText1'] = dxText:create('', 30, screenHeight-67, false, 'bankgothic', 0.70, 'left' )
-	g_dxGUI['titleText2'] = dxText:create('', 120, screenHeight-67, false, 'bankgothic', 0.70, 'left' )
+	g_GUI['titleImage'] = guiCreateStaticImage((screenWidth-g_Images.title.w)/2, (screenHeight-g_Images.title.h)/2+adjustY, g_Images.title.w, g_Images.title.h, g_Images.title.path, false)
+	g_dxGUI['titleText1'] = dxText:create('', 30, screenHeight-100, false, 'bankgothic', 0.70, 'left' )
+	g_dxGUI['titleText2'] = dxText:create('', 120, screenHeight-100, false, 'bankgothic', 0.70, 'left' )
 	g_dxGUI['titleText1']:text(	'KEYS: \n' ..
 								'F4 \n' ..
 								'F5 \n' ..
-								'ENTER' )
+								'K' )
 	g_dxGUI['titleText2']:text(	'\n' ..
 								'- TRAFFIC ARROWS \n' ..
 								'- TOP TIMES \n' ..
@@ -140,10 +159,10 @@ TravelScreen.startTime = 0
 
 function TravelScreen.init()
     local screenWidth, screenHeight = guiGetScreenSize()
-    g_GUI['travelImage']   = guiCreateStaticImage(screenWidth/2-256, screenHeight/2-90, 512, 256, 'img/travelling.png', false, nil)
-	g_dxGUI['travelText1'] = dxText:create('Travelling to', screenWidth/2, screenHeight/2-130, false, 'bankgothic', 0.60, 'center' )
-	g_dxGUI['travelText2'] = dxText:create('', screenWidth/2, screenHeight/2-100, false, 'bankgothic', 0.70, 'center' )
-	g_dxGUI['travelText3'] = dxText:create('', screenWidth/2, screenHeight/2-70, false, 'bankgothic', 0.70, 'center' )
+    g_GUI['travelImage']   = guiCreateStaticImage((screenWidth-g_Images.travelling.w)/2, (screenHeight-g_Images.travelling.h)/2-70, g_Images.travelling.w, g_Images.travelling.h, g_Images.travelling.path, false, nil)
+	g_dxGUI['travelText1'] = dxText:create('Travelling to', screenWidth/2, (screenHeight+g_Images.travelling.h)/2-40, false, 'bankgothic', 0.60, 'center' )
+	g_dxGUI['travelText2'] = dxText:create('', screenWidth/2, (screenHeight+g_Images.travelling.h)/2-10, false, 'bankgothic', 0.70, 'center' )
+	g_dxGUI['travelText3'] = dxText:create('', screenWidth/2, (screenHeight+g_Images.travelling.h)/2+20, false, 'bankgothic', 0.70, 'center' )
     g_dxGUI['travelText1']:color(240,240,240)
     hideGUIComponents('travelImage', 'travelText1', 'travelText2', 'travelText3')
 end
@@ -194,6 +213,10 @@ function initRace(vehicle, checkpoints, objects, pickups, mapoptions, ranked, du
 	setVehicleDamageProof(g_Vehicle, true)
 	OverrideClient.updateVars(g_Vehicle)
 	
+	if ( g_MapOptions.compmode ) then
+		outputDebugString ( "Compatibility mode!", 2 )
+	end
+	
 	--local x, y, z = getElementPosition(g_Vehicle)
 	setCameraBehindVehicle(vehicle)
 	--alignVehicleToGround(vehicle)
@@ -209,11 +232,18 @@ function initRace(vehicle, checkpoints, objects, pickups, mapoptions, ranked, du
 	local object
 	local pos
 	local colshape
+	
+	local vx, vy, vz = getElementPosition ( g_Vehicle )
+	
 	for i,pickup in pairs(pickups) do
 		pos = pickup.position
 		object = createObject(g_ModelForPickupType[pickup.type], pos[1], pos[2], pos[3])
 		setElementCollisionsEnabled(object, false)
-		colshape = createColSphere(pos[1], pos[2], pos[3], 3.5)
+		if g_MapOptions.compmode then
+			colshape = createColSphere(pos[1], pos[2], pos[3]+0.05, 4)
+		else
+			colshape = createColSphere(pos[1], pos[2], pos[3], 3.5)
+		end
 		g_Pickups[colshape] = { object = object }
 		for k,v in pairs(pickup) do
 			g_Pickups[colshape][k] = v
@@ -223,6 +253,11 @@ function initRace(vehicle, checkpoints, objects, pickups, mapoptions, ranked, du
 			g_Pickups[colshape].label = dxText:create(getVehicleNameFromModel(g_Pickups[colshape].vehicle), 0.5, 0.5)
 			g_Pickups[colshape].label:color(255, 255, 255, 0)
 			g_Pickups[colshape].label:type("shadow",2)
+			
+			if g_MapOptions.compmode and getDistanceBetweenPoints3D(pos[1], pos[2], pos[3]+0.05, vx, vy, vz)<4 then
+				setElementModel(g_Vehicle, g_Pickups[colshape].vehicle)
+				triggerServerEvent('onPlayerPickUpRacePickupInternal', g_Me, pickup.id, pickup.respawn)
+			end
         end
 	end
 	
@@ -242,7 +277,7 @@ function initRace(vehicle, checkpoints, objects, pickups, mapoptions, ranked, du
 	
 	-- GUI
 	g_dxGUI.timepassed:text('0:00:00')
-	showGUIComponents('healthbar', 'speedbar', 'timepassed')
+	showGUIComponents('timepassed')
 	hideGUIComponents('timeleftbg', 'timeleft')
 	if ranked then
 		showGUIComponents('ranknum', 'ranksuffix')
@@ -356,14 +391,18 @@ function updatePickups()
 			if pickup.label then
 				cX, cY, cZ = getCameraMatrix()
 				pickX, pickY, pickZ = unpack(pickup.position)
-				x, y = getScreenFromWorldPosition(pickX, pickY, pickZ + 2.85, 0.08 )
+				if g_MapOptions.compmode then
+					x, y = getScreenFromWorldPosition(pickX, pickY, pickZ + 2.75, 0.08 )
+				else
+					x, y = getScreenFromWorldPosition(pickX, pickY, pickZ + 2.85, 0.08 )
+				end
 				local distanceToPickup = getDistanceBetweenPoints3D(cX, cY, cZ, pickX, pickY, pickZ)
 				if distanceToPickup > 80 then
 					pickup.labelInRange = false
 					pickup.label:visible(false)
 				elseif x then
 					if distanceToPickup < 60 then
-						if isLineOfSightClear(cX, cY, cZ, pickX, pickY, pickZ, true, false, false, true, false) then
+						if isLineOfSightClear(cX, cY, cZ, pickX, pickY, pickZ+(g_MapOptions.compmode and 2.75 or 0), true, false, false, true, false) then
 							if not pickup.labelInRange then
 								if pickup.anim then
 									pickup.anim:remove()
@@ -429,7 +468,7 @@ addEventHandler('onClientColShapeHit', g_Root,
 		outputDebug( 'CHECKPOINT', 'onClientColShapeHit'
 						.. ' elem:' .. tostring(elem)
 						.. ' g_Vehicle:' .. tostring(g_Vehicle)
-						.. ' isVehicleBlown(g_Vehicle):' .. tostring(isVehicleBlown(g_Vehicle))
+						.. ' isVehicleBlown(g_Vehicle):' .. tostring(g_Vehicle and isVehicleBlown(g_Vehicle))
 						.. ' g_Me:' .. tostring(g_Me)
 						.. ' getElementHealth(g_Me):' .. tostring(getElementHealth(g_Me))
 						.. ' source:' .. tostring(source)
@@ -444,30 +483,47 @@ addEventHandler('onClientColShapeHit', g_Root,
 	end
 )
 
+addEvent("onClientPlayerHitPickup")
 function handleHitPickup(pickup)
 	if pickup.type == 'vehiclechange' then
-		if pickup.vehicle == getElementModel(g_Vehicle) then
+		local vehModel = tonumber(pickup.vehicle)
+		if not vehModel or vehModel == getElementModel(g_Vehicle) then
 			return
 		end
 		local health = nil
 		g_PrevVehicleHeight = getElementDistanceFromCentreOfMassToBaseOfModel(g_Vehicle)
-		alignVehicleWithUp()
-		if checkModelIsAirplane(pickup.vehicle) then -- Hack fix for Issue #4104
-			health = getElementHealth(g_Vehicle)
-		end
-		setElementModel(g_Vehicle, pickup.vehicle)
-		if health then
-			fixVehicle(g_Vehicle)
-			setElementHealth(g_Vehicle, health)
-		end
-		vehicleChanging(g_MapOptions.classicchangez, pickup.vehicle)
+		-- Delay vehicle change a bit (some maps doesn't like instant vehicle change)
+		TimerManager.createTimerFor(g_Vehicle):setTimer(function()
+			alignVehicleWithUp()
+			if checkModelIsAirplane(pickup.vehicle) then -- Hack fix for Issue #4104
+				health = getElementHealth(g_Vehicle)
+			end
+			setElementModel(g_Vehicle, vehModel)
+			if health then
+				fixVehicle(g_Vehicle)
+				setElementHealth(g_Vehicle, health)
+			end
+			vehicleChanging(g_MapOptions.classicchangez, vehModel)
+			if g_MapOptions.compmode then
+				setVehicleAdjustableProperty ( g_Vehicle, 0 )
+				setVehicleLandingGearDown ( g_Vehicle, true )
+				-- helicopter rator speed is set leter
+				for colshape, pickup in pairs ( g_Pickups ) do
+					if pickup.type == 'nitro' and isElementWithinColShape ( g_Vehicle, colshape ) then
+						-- trigger all nitro pickups because changing vehicle could have canceled their work
+						addVehicleUpgrade(g_Vehicle, 1010)
+						triggerServerEvent('onPlayerPickUpRacePickupInternal', g_Me, pickup.id, pickup.respawn)
+					end
+				end
+			end
+		end, 50, 1)
 	elseif pickup.type == 'nitro' then
 		addVehicleUpgrade(g_Vehicle, 1010)
 	elseif pickup.type == 'repair' then
 		fixVehicle(g_Vehicle)
 	end
 	triggerServerEvent('onPlayerPickUpRacePickupInternal', g_Me, pickup.id, pickup.respawn)
-	playSoundFrontEnd(46)
+	triggerEvent("onClientPlayerHitPickup", g_Me, pickup.id, pickup.respawn)
 end
 
 function removeVehicleNitro()
@@ -503,11 +559,15 @@ function vehicleChanging( changez, newModel )
 	end
 	local newVehicleHeight = getElementDistanceFromCentreOfMassToBaseOfModel(g_Vehicle)
 	local x, y, z = getElementPosition(g_Vehicle)
-	if g_PrevVehicleHeight and newVehicleHeight > g_PrevVehicleHeight then
+	if g_PrevVehicleHeight and (newVehicleHeight > g_PrevVehicleHeight or g_MapOptions.compmode) then
 		z = z - g_PrevVehicleHeight + newVehicleHeight
 	end
 	if changez then
-		z = z + 1
+		if g_MapOptions.compmode then
+			z = z + newVehicleHeight*2
+		else
+			z = z + 1
+		end
 	end
 	setElementPosition(g_Vehicle, x, y, z)
 	g_PrevVehicleHeight = nil
@@ -528,14 +588,6 @@ end
 
 function vehicleUnloading()
 	g_Vehicle = nil
-end
-
-function updateBars()
-	if g_Vehicle then
-		g_GUI.healthbar:setProgress(getElementHealth(g_Vehicle))
-		local vx, vy, vz = getElementVelocity(g_Vehicle)
-		g_GUI.speedbar:setProgress(math.sqrt(vx*vx + vy*vy + vz*vz))
-	end
 end
 
 function updateTime()
@@ -586,21 +638,25 @@ addEventHandler('onClientElementDataChange', g_Root,
 	end
 )
 
+g_LastZ = false
 
 function checkWater()
-    if g_Vehicle then
-        if not g_WaterCraftIDs[getElementModel(g_Vehicle)] then
-            local x, y, z = getElementPosition(g_Me)
-            local waterZ = getWaterLevel(x, y, z)
-            if waterZ and z < waterZ - 0.5 and not isPlayerRaceDead(g_Me) and not isPlayerFinished(g_Me) and g_MapOptions then
-                if g_MapOptions.firewater then
-                    blowVehicle ( g_Vehicle, true )
-                else
-                    setElementHealth(g_Me,0)
-                    triggerServerEvent('onRequestKillPlayer',g_Me)
-                end
-            end
-        end
+	if g_Vehicle then
+		if g_MapOptions.compmode or not g_WaterCraftIDs[getElementModel(g_Vehicle)] then
+			local x, y, z = getElementPosition(g_Me)
+			if g_LastZ then
+				local waterZ = getWaterLevel ( x, y, g_MapOptions.compmode and g_LastZ or z )
+				if waterZ and z < waterZ - 0.5 and not isPlayerRaceDead(g_Me) and not isPlayerFinished(g_Me) and g_MapOptions then
+					if g_MapOptions.firewater then
+						blowVehicle ( g_Vehicle, true )
+					else
+						--setElementHealth(g_Me,0)
+						triggerServerEvent('onRequestKillPlayer', g_Me, true)
+					end
+				end
+			end
+			g_LastZ = z
+		end
 		-- Check stalled vehicle
 		if not getVehicleEngineState( g_Vehicle ) then
 			setVehicleEngineState( g_Vehicle, true )
@@ -697,6 +753,7 @@ function getWatchedPlayer()
 end
 -------------------------------------------------------------------------------
 
+addEvent("onClientPlayerReachCheckpoint")
 function checkpointReached(elem)
 	outputDebug( 'CP', 'checkpointReached'
 					.. ' ' .. tostring(g_CurrentCheckpoint)
@@ -710,31 +767,28 @@ function checkpointReached(elem)
 		return
 	end
 	
-	if g_Checkpoints[g_CurrentCheckpoint].vehicle and g_Checkpoints[g_CurrentCheckpoint].vehicle ~= getElementModel(g_Vehicle) then
+	local vehModel = tonumber(g_Checkpoints[g_CurrentCheckpoint].vehicle)
+	if vehModel and vehModel ~= getElementModel(g_Vehicle) then
 		g_PrevVehicleHeight = getElementDistanceFromCentreOfMassToBaseOfModel(g_Vehicle)
 		local health = nil
 		alignVehicleWithUp()
 		if checkModelIsAirplane(g_Checkpoints[g_CurrentCheckpoint].vehicle) then -- Hack fix for Issue #4104
 			health = getElementHealth(g_Vehicle)
 		end
-		setElementModel(g_Vehicle, g_Checkpoints[g_CurrentCheckpoint].vehicle)
+		setElementModel(g_Vehicle, vehModel)
 		if health then
 			fixVehicle(g_Vehicle)
 			setElementHealth(g_Vehicle, health)
 		end
-		vehicleChanging(g_MapOptions.classicchangez, g_Checkpoints[g_CurrentCheckpoint].vehicle)
+		vehicleChanging(g_MapOptions.classicchangez, vehModel)
 	end
 	triggerServerEvent('onPlayerReachCheckpointInternal', g_Me, g_CurrentCheckpoint)
-	playSoundFrontEnd(43)
+	triggerEvent("onClientPlayerReachCheckpoint", g_Me, g_CurrentCheckpoint)
+	
 	if g_CurrentCheckpoint < #g_Checkpoints then
 		showNextCheckpoint()
 	else
 		g_dxGUI.checkpoint:text(#g_Checkpoints .. ' / ' .. #g_Checkpoints)
-		local rc = getRadioChannel()
-		setRadioChannel(0)
-		addEventHandler("onClientPlayerRadioSwitch", g_Root, onChange)
-		playSound("audio/mission_accomplished.mp3")
-		setTimer(changeRadioStation, 8000, 1, rc)
 		if g_GUI.hurry then
 			Animation.createAndPlay(g_GUI.hurry, Animation.presets.guiFadeOut(500), destroyElement)
 			g_GUI.hurry = false
@@ -745,20 +799,10 @@ function checkpointReached(elem)
 	end
 end
 
-function onChange()
-	cancelEvent()
-end
-
-function changeRadioStation(rc)
-	removeEventHandler("onClientPlayerRadioSwitch", g_Root, onChange)
-	setRadioChannel(tonumber(rc))
-end
-
 function startHurry()
 	if not isPlayerFinished(g_Me) then
 		local screenWidth, screenHeight = guiGetScreenSize()
-		local w, h = resAdjust(370), resAdjust(112)
-		g_GUI.hurry = guiCreateStaticImage(screenWidth/2 - w/2, screenHeight - h - 40, w, h, 'img/hurry.png', false, nil)
+		g_GUI.hurry = guiCreateStaticImage(screenWidth/2 - g_Images.hurry.w/2, screenHeight - g_Images.hurry.h - 40, g_Images.hurry.w, g_Images.hurry.h, g_Images.hurry.path, false, nil)
 		guiSetAlpha(g_GUI.hurry, 0)
 		Animation.createAndPlay(g_GUI.hurry, Animation.presets.guiFadeIn(800))
 		Animation.createAndPlay(g_GUI.hurry, Animation.presets.guiPulse(1000))
@@ -823,10 +867,10 @@ function Spectate._start()
 	triggerServerEvent('onClientNotifySpectate', g_Me, true )
 	assert(not Spectate.active, "Spectate._start - not Spectate.active")
 	local screenWidth, screenHeight = guiGetScreenSize()
-	g_GUI.specprev = guiCreateStaticImage(screenWidth/2 - 100 - 58, screenHeight - 123, 58, 82, 'img/specprev.png', false, nil)
-	g_GUI.specprevhi = guiCreateStaticImage(screenWidth/2 - 100 - 58, screenHeight - 123, 58, 82, 'img/specprev_hi.png', false, nil)
-	g_GUI.specnext = guiCreateStaticImage(screenWidth/2 + 100, screenHeight - 123, 58, 82, 'img/specnext.png', false, nil)
-	g_GUI.specnexthi = guiCreateStaticImage(screenWidth/2 + 100, screenHeight - 123, 58, 82, 'img/specnext_hi.png', false, nil)
+	g_GUI.specprev = guiCreateStaticImage(screenWidth/2 - 100 - g_Images.specprev.w, screenHeight - 123, g_Images.specprev.w, g_Images.specprev.h, g_Images.specprev.path, false, nil)
+	g_GUI.specprevhi = guiCreateStaticImage(screenWidth/2 - 100 - g_Images.specprev_hi.w, screenHeight - 123, g_Images.specprev_hi.w, g_Images.specprev_hi.h, g_Images.specprev_hi.path, false, nil)
+	g_GUI.specnext = guiCreateStaticImage(screenWidth/2 + 100, screenHeight - 123, g_Images.specprev.w, g_Images.specprev.h, g_Images.specnext.path, false, nil)
+	g_GUI.specnexthi = guiCreateStaticImage(screenWidth/2 + 100, screenHeight - 123, g_Images.specprev.w, g_Images.specprev.h, g_Images.specnext_hi.path, false, nil)
 	g_GUI.speclabel = guiCreateLabel(screenWidth/2 - 100, screenHeight - 100, 200, 70, '', false)
 	Spectate.updateGuiFadedOut()
 	guiLabelSetHorizontalAlign(g_GUI.speclabel, 'center')
@@ -1076,6 +1120,9 @@ addEventHandler ( "onClientPreRender", g_Root,
 	function()
 		if isPlayerRaceDead( g_Me ) then
 			setCameraMatrix( getCameraMatrix() )
+		elseif g_MapOptions and g_MapOptions.compmode and g_Vehicle then
+			local x, y, z = getElementPosition ( g_Vehicle )
+			if z < -50 then setElementPosition ( g_Vehicle, x, y, -50 ) end
 		end
 		updateSpectatingCheckpointsAndRank()
 	end
@@ -1234,7 +1281,7 @@ function unloadAll()
 	toggleAllControls(true)
 	
 	if g_GUI then
-		hideGUIComponents('timeleftbg', 'timeleft', 'healthbar', 'speedbar', 'ranknum', 'ranksuffix', 'checkpoint', 'timepassed')
+		hideGUIComponents('timeleftbg', 'timeleft', 'ranknum', 'ranksuffix', 'checkpoint', 'timepassed')
 		if g_GUI.hurry then
 			Animation.createAndPlay(g_GUI.hurry, Animation.presets.guiFadeOut(500), destroyElement)
 			g_GUI.hurry = nil
@@ -1365,7 +1412,6 @@ addEventHandler('onClientPlayerQuit', g_Root,
 addEventHandler('onClientResourceStop', g_ResRoot,
 	function()
 		unloadAll()
-		removeEventHandler('onClientRender', g_Root, updateBars)
 		killTimer(g_WaterCheckTimer)
 		showHUD(true)
 		setPedCanBeKnockedOffBike(g_Me, true)
@@ -1410,6 +1456,7 @@ setTimer(
 	function ()
 		if g_Vehicle and not isElement(g_Vehicle) then
 			outputChatBox( "Race integrity test fail (client): Your vehicle has been destroyed. Please panic." )
+			g_Vehicle = getPedOccupiedVehicle ( g_Me )
 		end
 	end,
 	1000,0
@@ -1423,6 +1470,12 @@ setTimer(
 --
 ---------------------------------------------------------------------------
 
+function oldSuicideKey ()
+	if ( not isPlayerRaceDead ( g_Me ) ) then
+		local suicideKey = getKeyBoundToCommand('Commit suicide') or 'k'
+		triggerServerEvent('onServerCall_race', g_Me, 'showMessage', "Press "..suicideKey:upper().." to kill yourself!", 255, 0, 0, g_Me)
+	end
+end
 
 function kill()
 	if Spectate.active then
@@ -1437,8 +1490,13 @@ function kill()
 end
 addCommandHandler('kill',kill)
 addCommandHandler('Commit suicide',kill)
-bindKey ( next(getBoundKeys"enter_exit"), "down", "Commit suicide" )
 
+bindKey('k', 'down', 'Commit suicide')
+local suicideKey = getKeyBoundToCommand('Commit suicide') or 'k'
+local enterExitKey = next(getBoundKeys('enter_exit'))
+if(suicideKey ~= enterExitKey) then
+	bindKey(enterExitKey, 'down', oldSuicideKey)
+end
 
 function spectate()
 	if Spectate.active then
@@ -1459,3 +1517,14 @@ function setPipeDebug(bOn)
     g_bPipeDebug = bOn
     outputConsole( 'bPipeDebug set to ' .. tostring(g_bPipeDebug) )
 end
+
+addEvent ( "onClientSetNextMap", true )
+addEventHandler ( "onClientSetNextMap", g_Root, function ( mapName )
+	g_NextMap = mapName
+	g_dxGUI.nextdisplay:text ( "Next map: "..( mapName or "not set" ) )
+end )
+
+addEvent("onClientSetSpectators", true)
+addEventHandler ( "onClientSetSpectators", g_Root, function ( spectatorsList )
+	g_dxGUI.spectators:text ( "Spectators: "..(spectatorsList or "none") )
+end )

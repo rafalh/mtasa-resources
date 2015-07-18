@@ -33,6 +33,7 @@ function OverrideClient.updateVars( element )
 	-- Alpha
 	local alpha = getElementData ( element, "race.alpha" )
 	if alpha then
+		if ( element == g_Me or element == g_Vehicle ) then alpha = 255 end
 		setElementAlpha ( element, alpha )
 	end
 	if OverrideClient.method ~= "fast" then return end

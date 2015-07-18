@@ -1,10 +1,10 @@
 <meta>
-	<info name="Race" description="arc_'s MTA Race implementation" author="arc_" type="gamemode" version="1.0.1" build="r1025 09Jan15" edf:definition="edf/race.edf"/>
+	<info name="Race/DD/DM" description="arc_'s MTA Race implementation modified by rafalh" author="arc_" type="gamemode" version="1.0.1" build="r1025 09Jan15" edf:definition="edf/race.edf"/>
 	
 	<include resource="killmessages"/>
 	<include resource="scoreboard"/>
 	<include resource="votemanager"/>
-	<include resource="helpmanager" />
+	<!--include resource="helpmanager" /-->
 
 
 	<script src="_common.lua" type="server"/>
@@ -39,12 +39,10 @@
 	<script src="config_client.lua" type="client"/>
 	<script src="override_client.lua" type="client"/>
 	<script src="editor_support_client.lua" type="client"/>
+	<script src="mui_c.lua" type="client"/>
 	<config src="help.xml" type="client" />
+	<config src="lang/pl_c.xml" type="client" />
 	
-	<file src="img/progress_health_bg.png"/>
-	<file src="img/progress_health.png"/>
-	<file src="img/progress_speed_bg.png"/>
-	<file src="img/progress_speed.png"/>
 	<file src="img/countdown_3.png"/>
 	<file src="img/countdown_2.png"/>
 	<file src="img/countdown_1.png"/>
@@ -56,11 +54,9 @@
 	<file src="img/specnext.png"/>
 	<file src="img/specnext_hi.png"/>
 	<file src="img/blank.png"/>
-	<file src="img/title.png"/>
+	<file src="img/title.jpg"/>
 	<file src="img/travelling.png"/>
 	<file src="img/killmessage.png"/>
-
-	<file src="audio/mission_accomplished.mp3"/>
 	
 	<file src="model/nitro.dff"/>
 	<file src="model/nitro.txd"/>
@@ -77,6 +73,11 @@
 	<export function="getPlayerRank" type="server"/>
 	<export function="isPlayerFinished" type="server"/>
 	<export function="getPlayerVehicle" type="server"/>
+	<export function="isGhostmodeEnabled" type="server"/>
+	<export function="setGhostmodeEnabled" type="server"/>
+	<export function="setNextMap" type="server"/>
+	
+	<sync_map_element_data>false</sync_map_element_data>
 	
 	<settings>
 		<!-- *****************************************************
@@ -201,7 +202,7 @@
 					desc="To issue certain commands, the player must belong to one of the groups listed."
 					/>
 
-		<setting name="#addons" value="race_toptimes,race_traffic_sensor"
+		<setting name="#addons" value="race_audio,race_traffic_sensor"
 					accept="*"
 					desc="List of race addon resources to load automatically"
 					/>
@@ -314,6 +315,54 @@
 
 		<setting name="*ghostmode_warning_if_map_override"  friendlyname="Ghost mode override warning" group="Gameplay" value="true" accept="false,true" desc="Set to true to issue a warning to players in the chatbox, if the map overrides this setting"/>
 		<setting name="*vehicleweapons_warning_if_map_override"  friendlyname="Vehicle weapons override warning" group="Gameplay" value="true" accept="false,true" desc="Set to true to issue a warning to players in the chatbox, if the map overrides this setting"/>
+
+        <setting name="*voteredo_enabled" value="true"
+		friendlyname="Vote for restart the current map enabled"
+		group="Votes"
+		accept="false,true"
+		/>
+
+	<setting name="*voteredo_percentage" value="67"
+		friendlyname="Vote for restart the current map percentage"
+		group="Votes"
+		accept="0-100"
+		/>
+
+        <setting name="*voteredo_timeout" value="15"
+		friendlyname="Vote for restarting the map percentage"
+		group="Votes"
+		accept="0-100"
+		/>
+
+        <setting name="*voteredo_allowchange" value="true"
+		friendlyname="Allow change in vote for restarting the map"
+		group="Votes"
+		accept="false,true"
+		/>
+
+	<setting name="*new_enabled" value="true"
+		friendlyname="Vote for new map enabled"
+		group="Votes"
+		accept="false,true"
+		/>
+
+        <setting name="*new_percentage" value="67"
+		friendlyname="Vote for new map percentage"
+		group="Votes"
+		accept="0-100"
+		/>
+
+        <setting name="*new_timeout" value="15"
+		friendlyname="Vote for new map timeout"
+		group="Votes"
+		accept="0-100"
+		/>
+
+        <setting name="*new_allowchange" value="true"
+		friendlyname="Allow change in vote for new map"
+		group="Votes"
+		accept="false,true"
+		/>
     </settings>
 
 

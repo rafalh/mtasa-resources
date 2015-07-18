@@ -86,8 +86,8 @@ end
 function RaceMode.endMap()
     if stateAllowsPostFinish() then
         gotoState('PostFinish')
-        local text = g_GameOptions.randommaps and 'Next map starts in:' or 'Vote for next map starts in:'
-        Countdown.create(5, RaceMode.startNextMapSelect, text, 255, 255, 255, 0.6, 2.5 ):start()
+        local text = (g_GameOptions.randommaps or g_ForcedNextMap) and 'Next map starts in:' or 'Vote for next map starts in:'
+        Countdown.create(3, RaceMode.startNextMapSelect, text, 255, 255, 255, 0.6, 2.5 ):start()
 		triggerEvent('onPostFinish', g_Root)
     end
 end
@@ -246,6 +246,7 @@ function RaceMode:onPlayerReachCheckpoint(player, checkpointNum)
 		setPlayerStatus( player, nil, "finished" )
 		if rank == 1 then
             gotoState('SomeoneWon')
+			showMessage(getPlayerName(player)..' has won the race!', 255, 255, 255)
 			showMessage('You have won the race!', 0, 255, 0, player)
 			if self.rankingBoard then	-- Remove lingering labels
 				self.rankingBoard:destroy()
@@ -323,13 +324,14 @@ function RaceMode:onPlayerWasted(player)
 	end
 	if g_MapOptions.respawn == 'none' then
 		removeActivePlayer( player )
-		TimerManager.createTimerFor("map",player):setTimer(clientCall, 2000, 1, player, 'Spectate.start', 'auto')
 		if getActivePlayerCount() < 1 and g_CurrentRaceMode.running then
 			RaceMode.endMap()
 		end
 	end
 end
 
+function RaceMode:onPlayerPickUpRacePickup ( pickupID, type, vehicle )
+end
 
 function distanceFromVehicleToSpawnpoint(vehicle, spawnpoint)
     if vehicle then

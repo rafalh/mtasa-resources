@@ -8,6 +8,9 @@
 local lastVoteStarterName = ''
 local lastVoteStarterCount = 0
 
+addEvent("onPollEnd")
+addEvent("onPollStop")
+
 ----------------------------------------------------------------------------
 -- displayHilariarseMessage
 --
@@ -61,7 +64,7 @@ end
 function startMidMapVoteForRandomMap(player)
 
 	-- Check state and race time left
-	if not stateAllowsRandomMapVote() or g_CurrentRaceMode:getTimeRemaining() < 30000 then
+	if not stateAllowsRandomMapVote() or g_CurrentRaceMode:getTimeRemaining() < 30000 or get ( "new_enabled" ) == "false" then
 		if player then
 			outputRace( "I'm afraid I can't let you do that, " .. getPlayerName(player) .. ".", player )
 		end 
@@ -74,9 +77,9 @@ function startMidMapVoteForRandomMap(player)
 	-- Actual vote started here
 	local pollDidStart = exports.votemanager:startPoll {
 			title='Do you want to change to a random map?',
-			percentage=51,
-			timeout=15,
-			allowchange=true,
+			percentage=tonumber ( get ( "new_percentage" ) ),
+			timeout=tonumber ( get ( "new_timeout" ) ),
+			allowchange=( get ( "new_allowchange" ) ~= "false" ),
 			visibleTo=getRootElement(),
 			[1]={'Yes', 'midMapVoteResult', getRootElement(), true},
 			[2]={'No', 'midMapVoteResult', getRootElement(), false;default=true},
@@ -84,6 +87,9 @@ function startMidMapVoteForRandomMap(player)
 
 	-- Change state if vote did start
 	if pollDidStart then
+		if player ~= getElementByIndex("console", 0) then
+			triggerClientEvent( player, "doSendVote", getRootElement(), 1 )
+		end
 		gotoState('MidMapVote')
 	end
 
@@ -229,7 +235,7 @@ function startNextMapVote()
 		title="Choose the next map:",
 		visibleTo=getRootElement(),
 		percentage=51,
-		timeout=15,
+		timeout=10,
 		allowchange=true;
 		}
 	
@@ -254,6 +260,7 @@ function startNextMapVote()
 	if pollDidStart then
 		gotoState('NextMapVote')
 		addEventHandler("onPollEnd", getRootElement(), chooseRandomMap)
+		addEventHandler("onPollStop", getRootElement(), removePollHandlers)
 	end
 
 	return pollDidStart
@@ -275,10 +282,13 @@ function chooseRandomMap (chosen)
 		math.randomseed(getTickCount())
 		exports.votemanager:finishPoll(1)
 	end
-	removeEventHandler("onPollEnd", getRootElement(), chooseRandomMap)
+	removePollHandlers()
 end
 
-
+function removePollHandlers()
+	removeEventHandler("onPollEnd", getRootElement(), chooseRandomMap)
+	removeEventHandler("onPollStop", getRootElement(), removePollHandlers)
+end
 
 ----------------------------------------------------------------------------
 -- event nextMapVoteResult
@@ -307,7 +317,7 @@ addEventHandler('nextMapVoteResult', getRootElement(),
 function startMidMapVoteForRestartMap(player)
 
 	-- Check state and race time left
-	if not stateAllowsRestartMapVote() then
+	if not stateAllowsRestartMapVote() or get ( "voteredo_enabled" ) == "false" then
 		if player then
 			outputRace( "I'm afraid I can't let you do that, " .. getPlayerName(player) .. ".", player )
 		end 
@@ -320,9 +330,9 @@ function startMidMapVoteForRestartMap(player)
 	-- Actual vote started here
 	local pollDidStart = exports.votemanager:startPoll {
 			title='Do you want to restart the current map?',
-			percentage=51,
-			timeout=15,
-			allowchange=true,
+			percentage=tonumber ( get ( "voteredo_percentage" ) ),
+			timeout=tonumber ( get ( "voteredo_timeout" ) ),
+			allowchange=( get ( "voteredo_allowchange" ) ~= "false" ),
 			visibleTo=getRootElement(),
 			[1]={'Yes', 'midMapRestartVoteResult', getRootElement(), true},
 			[2]={'No', 'midMapRestartVoteResult', getRootElement(), false;default=true},
@@ -330,6 +340,9 @@ function startMidMapVoteForRestartMap(player)
 
 	-- Change state if vote did start
 	if pollDidStart then
+		if player ~= getElementByIndex("console", 0) then
+			triggerClientEvent( player, "doSendVote", getRootElement(), 1 )
+		end
 		gotoState('MidMapVote')
 	end
 
@@ -665,7 +678,7 @@ end
 --
 ---------------------------------------------------------------------------
 
-addCommandHandler('checkmap',
+--[[addCommandHandler('checkmap',
 	function( player, command, ... )
 		local query = #{...}>0 and table.concat({...},' ') or nil
 		if query then
@@ -673,9 +686,9 @@ addCommandHandler('checkmap',
 			outputRace( errormsg, player )
 		end
 	end
-)
+)]]
 
-addCommandHandler('nextmap',
+--[[addCommandHandler('nextmap',
 	function( player, command, ... )
 		local query = #{...}>0 and table.concat({...},' ') or nil
 		if not query then
@@ -701,7 +714,11 @@ addCommandHandler('nextmap',
 		g_ForcedNextMap = map
 		outputChatBox('Next map set to ' .. getMapName( g_ForcedNextMap ) .. ' by ' .. getPlayerName( player ), g_Root, 0, 240, 0)
 	end
-)
+)]]
+
+function setNextMap(mapRes)
+	g_ForcedNextMap = mapRes
+end
 
 --Find a map which matches, or nil and a text message if there is not one match
 function findMap( query )

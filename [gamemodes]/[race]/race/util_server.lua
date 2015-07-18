@@ -38,6 +38,7 @@ function warpPedIntoVehicle(player, vehicle)
 	end
 end
 
+allowRPC('showMessage')
 g_Messages = {}		-- { player =  { display = display, textitem = textitem, timer = timer } }
 function showMessage(text, r, g, b, player)
     local ypos = 0.25

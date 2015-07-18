@@ -4,11 +4,12 @@ local idAssign,idPrefix = 0,"c"
 local g_screenX,g_screenY = guiGetScreenSize()
 local visibleText = {}
 ------
-defaults = {
+local defaults = {
 	fX							= 0.5,
 	fY							= 0.5,
 	bRelativePosition			= true,
 	strText						= "",
+	strTextWithoutCodes			= "",
 	bVerticalAlign 				= "center",
 	bHorizontalAlign 			= "center",
 	tColor 						= {255,255,255,255},
@@ -17,6 +18,7 @@ defaults = {
 	strType						= "normal",
 	tAttributes					= {},
 	bPostGUI 					= false,
+	bColorCoded                 = false,
 	bClip 						= false,
 	bWordWrap	 				= true,
 	bVisible 					= true,
@@ -63,6 +65,7 @@ function dxText:create( text, x, y, relative, strFont, fScale, horzA )
 	idAssign = idAssign + 1
 	new.id = idPrefix..idAssign
 	new.strText = text or new.strText
+	new.strTextWithoutCodes = new.strText -- codes ignored
 	new.fX = x or new.fX
 	new.fY = y or new.fY
 	if type(relative) == "boolean" then
@@ -78,6 +81,7 @@ end
 function dxText:text(text)
 	if type(text) ~= "string" then return self.strText end
 	self.strText = text
+	self.strTextWithoutCodes = self.bColorCoded and self.strText:gsub ( "#%x%x%x%x%x%x", "" ) or self.strText
 	return true
 end
 
@@ -110,7 +114,6 @@ end
 
 function dxText:visible(bool)
 	if type(bool) ~= "boolean" then return self.bVisible end
-	if self.bVisible == bool then return end
 	self.bVisible = bool
 	if bool then
 		visibleText[self] = true
@@ -126,6 +129,22 @@ function dxText:destroy()
 	return true
 end
 
+function dxText:extent()
+	local extent = dxGetTextWidth ( self.strTextWithoutCodes, self.fScale, self.strFont )
+	if self.strType == "stroke" or self.strType == "border" then
+		extent = extent + self.tAttributes[1]
+	end
+	return extent
+end
+
+function dxText:height()
+	local height = dxGetFontHeight ( self.fScale, self.strFont )
+	if self.strType == "stroke" or self.strType == "border" then
+		height = height + self.tAttributes[1]
+	end
+	return height
+end
+
 function dxText:font(font)
 	if not validFonts[font] then return self.strFont end
 	self.strFont = font
@@ -135,6 +154,13 @@ end
 function dxText:postGUI(bool)
 	if type(bool) ~= "boolean" then return self.bPostGUI end
 	self.bPostGUI = bool
+	return true
+end
+
+function dxText:colorCoded(bool)
+	if type(bool) ~= "boolean" then return self.bColorCoded end
+	self.bColorCoded = bool
+	self.strTextWithoutCodes = self.bColorCoded and self.strText:gsub ( "#%x%x%x%x%x%x", "" ) or self.strText
 	return true
 end
 
@@ -242,11 +268,12 @@ addEventHandler ( "onClientRender", getRootElement(),
 					att4 = att4 or 0
 					att5 = att5 or self.tColor[4]
 					outlinesize = att1 or 2
+					outlinesize = math.min(self.fScale,outlinesize) --Make sure the outline size isnt thicker than the size of the label
 					if outlinesize > 0 then
 						for offsetX=-outlinesize,outlinesize,outlinesize do
 							for offsetY=-outlinesize,outlinesize,outlinesize do
 								if not (offsetX == 0 and offsetY == 0) then
-									dxDrawText(self.strText, l + offsetX, t + offsetY, r + offsetX, b + offsetY, tocolor(att2, att3, att4, att5), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI )
+									dxDrawText(self.strTextWithoutCodes, l + offsetX, t + offsetY, r + offsetX, b + offsetY, tocolor(att2, att3, att4, att5), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI )
 								end
 							end
 						end
@@ -257,9 +284,9 @@ addEventHandler ( "onClientRender", getRootElement(),
 					att3 = att3 or 0
 					att4 = att4 or 0
 					att5 = att5 or self.tColor[4]
-					dxDrawText(self.strText, l + shadowDist, t + shadowDist, r + shadowDist, b + shadowDist, tocolor(att2, att3, att4, att5), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI )
+					dxDrawText(self.strTextWithoutCodes, l + shadowDist, t + shadowDist, r + shadowDist, b + shadowDist, tocolor(att2, att3, att4, att5), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI )
 				end
-				dxDrawText ( self.strText, l, t, r, b, tocolor(unpack(self.tColor)), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI )
+				dxDrawText ( self.strText, l, t, r, b, tocolor(unpack(self.tColor)), self.fScale, self.strFont, self.bHorizontalAlign, self.bVerticalAlign, self.bClip, self.bWordWrap, self.bPostGUI, self.bColorCoded )
 				break
 			end
 		end
