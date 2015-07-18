@@ -29,7 +29,7 @@ local function iif( cond, arg1, arg2 )
 	return arg2
 end
 
-function scoreboardAddColumn( name, forElement, width, friendlyName, priority )
+function scoreboardAddColumn( name, forElement, width, friendlyName, priority, imgName )
 	if type( name ) == "string" then
 		width = tonumber( width ) or 70
 		friendlyName = friendlyName or name
@@ -44,16 +44,16 @@ function scoreboardAddColumn( name, forElement, width, friendlyName, priority )
 						return false
 					end
 				end
-				table.insert( scoreboardColumns, { ["name"] = name, ["width"] = width, ["friendlyName"] = friendlyName, ["priority"] = priority } )
+				table.insert( scoreboardColumns, { ["name"] = name, ["width"] = width, ["friendlyName"] = friendlyName, ["priority"] = priority, ["imgName"] = imgName } )
 				table.sort( scoreboardColumns, function ( a, b ) return a.priority < b.priority end )
 				if sourceResource then
 					if not resourceColumns[sourceResource] then resourceColumns[sourceResource] = {} end
 					table.insert ( resourceColumns[sourceResource], name )
 				end
-				return triggerClientEvent( getRootElement(), "doScoreboardAddColumn", getRootElement(), name, width, friendlyName, priority, sourceResource )
+				return triggerClientEvent( getRootElement(), "doScoreboardAddColumn", getRootElement(), name, width, friendlyName, priority, sourceResource, imgName )
 			end
 		else
-			return triggerClientEvent( forElement, "doScoreboardAddColumn", getRootElement(), name, width, friendlyName, priority, sourceResource )
+			return triggerClientEvent( forElement, "doScoreboardAddColumn", getRootElement(), name, width, friendlyName, priority, sourceResource, imgName )
 		end
 	end
 	return false
@@ -195,7 +195,7 @@ end
 
 function onClientDXScoreboardResourceStart()
 	for key, column in ipairs( scoreboardColumns ) do
-		triggerClientEvent( client, "doScoreboardAddColumn", getRootElement(), column.name, column.width, column.friendlyName, column.priority )
+		triggerClientEvent( client, "doScoreboardAddColumn", getRootElement(), column.name, column.width, column.friendlyName, column.priority, nil, column.imgName )
 	end
 end
 addEvent( "onClientDXScoreboardResourceStart", true )
@@ -239,11 +239,11 @@ end
 addEventHandler( "onResourceStop", getRootElement(), removeResourceScoreboardColumns )
 
 -- Compability
-addScoreboardColumn = 	function( name, forElement, position, size )
+addScoreboardColumn = 	function( name, forElement, position, size, imgName )
 							if type( size ) == "number" and size >= 0 and size <= 1.0 then
 								size = size*700
 							end
-							return scoreboardAddColumn( name, forElement, size, name, position )
+							return scoreboardAddColumn( name, forElement, size, name, position, imgName )
 						end
 removeScoreboardColumn = scoreboardRemoveColumn
 resetScoreboardColumns = scoreboardResetColumns

@@ -729,6 +729,14 @@ function doDrawScoreboard( rtPass, onlyAnim, sX, sY )
 									
 									dxDrawImage ( topX+theX, y, itemWidth, itemHeight, content.src, content.rot, content.rotOffX, content.rotOffY, content.color, drawOverGUI )
 								end
+							elseif ( column.imgName ) then
+								local img_path = getElementData ( element, column.imgName )
+								local img_y = y+dxGetFontHeight( fontscale(contentFont, scoreboardScale), contentFont )/2-6
+								if ( img_path ) then
+									dxDrawImage( topX+theX, img_y, 16, 11, img_path, 0, 0, 0, tocolor ( 255, 255, 255 ), drawOverGUI )
+								end
+								dxDrawText( content, topX+theX+s(1)+19, 	y+s(1), topX+x+s(1+column.width), 	y+s(11)+dxGetFontHeight( fontscale(contentFont, scoreboardScale), contentFont ), 	tocolor( 0, 0, 0, a or 255 ), fontscale(contentFont, s(1)), contentFont, "left", "top", true, false, drawOverGUI )
+								dxDrawText( content, topX+theX+19, 			y, 		topX+x+s(column.width), 	y+dxGetFontHeight( fontscale(contentFont, scoreboardScale), contentFont ), 			tocolor( r or 255, g or 255, b or 255, a or 255 ), fontscale(contentFont, s(1)), contentFont, "left", "top", true, false, drawOverGUI )
 							else
 								dxDrawText( content, topX+theX+s(1), 	y+s(1), topX+x+s(1+column.width), 	y+s(11)+dxGetFontHeight( fontscale(contentFont, scoreboardScale), contentFont ), 	tocolor( 0, 0, 0, a or 255 ), fontscale(contentFont, s(1)), contentFont, "left", "top", true, false, drawOverGUI )
 								dxDrawText( content, topX+theX, 		y, 		topX+x+s(column.width), 	y+dxGetFontHeight( fontscale(contentFont, scoreboardScale), contentFont ), 			tocolor( r or 255, g or 255, b or 255, a or 255 ), fontscale(contentFont, s(1)), contentFont, "left", "top", true, false, drawOverGUI )
@@ -748,7 +756,7 @@ end
 
 -- FUNCTIONS
 -- addColumn
-function scoreboardAddColumn( name, width, friendlyName, priority, textFunction, fromResource )
+function scoreboardAddColumn( name, width, friendlyName, priority, textFunction, fromResource, imgName )
 	if type( name ) == "string" then
 		width = width or 70
 		friendlyName = friendlyName or name
@@ -763,7 +771,7 @@ function scoreboardAddColumn( name, width, friendlyName, priority, textFunction,
 					return false
 				end
 			end
-			table.insert( scoreboardColumns, { ["name"] = name, ["width"] = width, ["friendlyName"] = friendlyName, ["priority"] = priority, ["textFunction"] = textFunction } )
+			table.insert( scoreboardColumns, { ["name"] = name, ["width"] = width, ["friendlyName"] = friendlyName, ["priority"] = priority, ["textFunction"] = textFunction, ["imgName"] = imgName } )
 			table.sort( scoreboardColumns, function ( a, b ) return a.priority < b.priority end )
 			if fromResource then
 				if not resourceColumns[fromResource] then resourceColumns[fromResource] = {} end
@@ -777,8 +785,8 @@ end
 
 addEvent( "doScoreboardAddColumn", true )
 addEventHandler( "doScoreboardAddColumn", getResourceRootElement(),
-	function ( name, width, friendlyName, priority, fromResource )
-		scoreboardAddColumn( name, width, friendlyName, priority, nil, fromResource )
+	function ( name, width, friendlyName, priority, fromResource, imgName )
+		scoreboardAddColumn( name, width, friendlyName, priority, nil, fromResource, imgName )
 	end
 )
 
