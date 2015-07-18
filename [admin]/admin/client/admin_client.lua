@@ -52,7 +52,7 @@ function aAdminResourceStart ()
 			aWeathers[id] = name
 			_weathers_max = _weathers_max + 1
 		end
-		if ( _weathers_max >= 1 ) then _weathers_max = _weathers_max - 1 end
+		if ( _weathers_max >= 1 ) then _weathers_max = 255 end --_weathers_max - 1 end
 		xmlUnloadFile ( node )
 	end
 	aLoadSettings ()

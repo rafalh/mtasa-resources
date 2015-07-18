@@ -247,8 +247,9 @@ addEventHandler ( "onResourceStop", _root, function ( resource )
 				setPlayerMuted(player, false)
 			end
 		end
+		
+		aclSave ()
 	end
-	aclSave ()
 end )
 
 function aGetSetting ( setting )
@@ -599,6 +600,7 @@ end )
 addEvent ( "aAdmin", true )
 addEventHandler ( "aAdmin", _root, function ( action, ... )
 	if checkClient( true, source, 'aAdmin', action ) then return end
+	if checkClient( "resource.admin."..action, source, 'aAdmin', action ) then return end
 	local mdata = ""
 	local mdata2 = ""
 	if ( action == "password" ) then
@@ -1075,21 +1077,26 @@ addEventHandler ( "aPlayer", _root, function ( player, action, data, additional,
 				outputChatBox ( "Error - Player is not logged in.", source, 255, 100 ,100 )
 			end
 		elseif ( action == "givevehicle" ) then
-			local vehicle = getPedOccupiedVehicle ( player )
-			if ( vehicle ) then
-				setElementModel(vehicle, data)
-				fixVehicle(vehicle)
+			local model = tonumber ( data )
+			if ( model) then
+				local vehicle = getPedOccupiedVehicle ( player )
+				if ( vehicle ) then
+					setElementModel(vehicle, model)
+					fixVehicle(vehicle)
+				else
+					local x, y, z = getElementPosition ( player )
+					local r = getPedRotation ( player )
+					local vx, vy, vz = getElementVelocity ( player )
+					vehicle = createVehicle ( data, x, y, z, 0, 0, r )
+					setElementDimension ( vehicle, getElementDimension ( player ) )
+					setElementInterior ( vehicle, getElementInterior ( player ) )
+					warpPedIntoVehicle ( player, vehicle )
+					setElementVelocity ( vehicle, vx, vy, vz )
+				end
+				mdata = getVehicleName ( vehicle )
 			else
-				local x, y, z = getElementPosition ( player )
-				local r = getPedRotation ( player )
-				local vx, vy, vz = getElementVelocity ( player )
-				vehicle = createVehicle ( data, x, y, z, 0, 0, r )
-				setElementDimension ( vehicle, getElementDimension ( player ) )
-				setElementInterior ( vehicle, getElementInterior ( player ) )
-				warpPedIntoVehicle ( player, vehicle )
-				setElementVelocity ( vehicle, vx, vy, vz )
+				action = nil
 			end
-			mdata = getVehicleName ( vehicle )
 		elseif ( action == "giveweapon" ) then
 			if ( giveWeapon ( player, data, additional, true ) ) then
 				mdata = getWeaponNameFromID ( data )
@@ -1129,7 +1136,7 @@ addEventHandler ( "aPlayer", _root, function ( player, action, data, additional,
 				end
       		  	if ( isPedInVehicle ( to ) ) then
       		  		local vehicle = getPedOccupiedVehicle ( to )
-					local seats = getVehicleMaxPassengers ( vehicle ) + 1
+					local seats = ( getVehicleMaxPassengers ( vehicle ) or 0 ) + 1 -- getVehicleMaxPassengers can return false for some vehicles
 					local i = 0
 					while ( i < seats ) do
 						if ( not getVehicleOccupant ( vehicle, i ) ) then
@@ -1171,7 +1178,7 @@ end
 
 addEvent ( "aVehicle", true )
 addEventHandler ( "aVehicle", _root, function ( player, action, data )
-	if checkClient( "command."..action, source, 'aVehicle', action ) then return end
+	if checkClient( "command."..action, source, 'aVehicle', action ) or not isElement ( player ) then return end
 	if ( hasObjectPermissionTo ( source, "command."..action ) ) then
 		if ( not player ) then return end
 		local vehicle = getPedOccupiedVehicle ( player )

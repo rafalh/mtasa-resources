@@ -393,7 +393,12 @@ y=y+B  aTab1.VehicleHealth	= guiCreateLabel ( 0.26, y, 0.25, 0.04, "Vehicle Heal
 			end
 		end
 	end
-    guiSetInputMode ( "no_binds_when_editing" )
+
+	--guiSetInputMode ( "no_binds_when_editing" ) -- it's already set on resource start
+
+	if(guiGetSelectedTab(aTabPanel) ~= aTab1.Tab) then
+		aClientGUITabSwitched(guiGetSelectedTab(aTabPanel))
+	end
 end
 
 function aAdminMenuClose ( destroy )
@@ -431,7 +436,7 @@ function aAdminMenuClose ( destroy )
 		guiSetVisible ( aAdminForm, false )
 	end
 	showCursor ( false )
-    guiSetInputMode ( "allow_binds")
+    --guiSetInputMode ( "allow_binds") -- this breaks modchat
 end
 
 function aMainSaveSettings ()

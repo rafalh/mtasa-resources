@@ -30,6 +30,9 @@ function guiCreateTab ( name, parent, right )
 				_guiprotected[right] = tab
 			end
 		end
+		if(not guiGetEnabled(guiGetSelectedTab(parent)) and guiGetEnabled(tab)) then
+			guiSetSelectedTab(parent, tab)
+		end
 		return tab
 	end
 	return false
