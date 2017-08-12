@@ -175,10 +175,12 @@
   <file src="client/images/flags/lu.png" />
   <file src="client/images/flags/lv.png" />
   <file src="client/images/flags/ly.png" />
+  <file src="client/images/flags/ma.png" />
   <file src="client/images/flags/mc.png" />
   <file src="client/images/flags/mg.png" />
   <file src="client/images/flags/mh.png" />
   <file src="client/images/flags/mt.png" />
+  <file src="client/images/flags/mx.png" />
   <file src="client/images/flags/ng.png" />
   <file src="client/images/flags/nl.png" />
   <file src="client/images/flags/no.png" />
@@ -191,6 +193,7 @@
   <file src="client/images/flags/pr.png" />
   <file src="client/images/flags/ps.png" />
   <file src="client/images/flags/pt.png" />
+  <file src="client/images/flags/py.png" />
   <file src="client/images/flags/qa.png" />
   <file src="client/images/flags/re.png" />
   <file src="client/images/flags/ro.png" />
