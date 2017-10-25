@@ -35,12 +35,14 @@ addEventHandler('onGamemodeMapStart', g_Root,
 		cpTimes = {}
 		allCpTimes = {}
 		topTimeInterims = nil
-		local sql = executeSQLQuery("SELECT playername, interims FROM mapinterims WHERE mapname = ?", mapName )
+		local rafalhRes = getResourceFromName("toxic")
+		local sql = rafalhRes and getResourceState(rafalhRes) == "running" and call(rafalhRes, "getTopTime", mapres, true) or {}
 		if #sql > 0 then
-			if debug then outputDebugString(tostring(sql[1].playername).." "..tostring(sql[1].interims)) end
-			topTimeRankPlayer = split(sql[1].playername, string.byte(' '))
-			topTimeInterims = split(sql[1].interims, string.byte(','))
-			topTimeRankPlayer[1] = tonumber(topTimeRankPlayer[1])
+			topTimeRankPlayer = { sql[1].rank, "unknown" }
+			topTimeInterims = split(sql[1].cp_times, string.byte(','))
+			for i, v in ipairs ( topTimeInterims ) do
+				topTimeInterims[i] =  ( topTimeInterims[i-1] or 0 ) + tonumber ( "0x"..v )
+			end
 		end
 		if debug then outputDebugString(tostring(topTimeRankPlayer[1]).." "..tostring(topTimeRankPlayer[2])) end
 	end
@@ -55,7 +57,7 @@ addEventHandler('onPlayerReachCheckpoint', g_Root,
 		allCpTimes[source][checkpointNum] = timePassed
         local rank = getElementData(source , "race rank")
         if rank == 1 then
-			if topTimeInterims and topTimeRankPlayer then
+			if topTimeInterims and topTimeRankPlayer and topTimeInterims[checkpointNum] then
 				local diff = topTimeInterims[checkpointNum] - timePassed
 				if debug then outputDebugString("race_delay_indicator: "..getPlayerName(source).." "..diff.." record  #"..topTimeRankPlayer[1]) end
 				if not players[source] then
@@ -102,6 +104,7 @@ function getPlayerFromRank(rank)
     return false
 end
 
+--[=[
 addEvent("onPlayerToptimeImprovement")
 addEventHandler("onPlayerToptimeImprovement", g_Root,
 	function(newPos)
@@ -120,6 +123,7 @@ addEventHandler("onPlayerToptimeImprovement", g_Root,
 		end
 	end
 )
+]=]
 
 function updatetopTimeInterims()
 	sql = executeSQLQuery("SELECT * FROM mapinterims")
