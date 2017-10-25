@@ -5,6 +5,7 @@ local boundVoteKeys = {}
 local nameFromVoteID = {}
 local voteIDFromName = {}
 local optionLabels = {}
+local optionData = {}
 
 local isVoteActive
 local hasAlreadyVoted = false
@@ -18,7 +19,7 @@ local cacheTimer
 
 local layout = {}
 layout.window = {
-	width = 150,
+	width = 200,
 	relative = false,
 	alpha = 0.85,
 }
@@ -28,9 +29,9 @@ layout.title = {
 	width = layout.window.width,
 	relative = false,
 	alpha = 1,
-	r = 100,
-	g = 100,
-	b = 250,
+	r = 0,
+	g = 255,
+	b = 0,
 	font = "default-bold-small",
 }
 layout.option = {
@@ -42,7 +43,7 @@ layout.option = {
 	g = 200,
 	b = 200,
 	font = "default-normal",
-	bottom_padding = 4, --px
+	bottom_padding = 12, --px
 }
 layout.cancel = {
 	posX = 10,
@@ -85,6 +86,7 @@ end
 addEvent("doShowPoll", true)
 addEvent("doSendVote", true)
 addEvent("doStopPoll", true)
+addEvent("doUpdatePoll", true)
 
 addEventHandler("doShowPoll", rootElement,
 	function (pollData, pollOptions, pollTime)
@@ -96,6 +98,7 @@ addEventHandler("doShowPoll", rootElement,
 		nameFromVoteID = pollOptions
 		--then build a reverse table
 		voteIDFromName = {}
+		optionData = {}
 		local width
 	    for id, name in ipairs(nameFromVoteID) do
 			voteIDFromName[name] = id
@@ -161,6 +164,7 @@ addEventHandler("doShowPoll", rootElement,
 		setElementParent(titleLabel, voteWindow)
 		
 		local labelY = layout.title.posY + titleHeight
+		local rafalh_shared_res = getResourceFromName ( "rafalh_shared" )
 		
 		--for each option, bind its key and create its label
 		for index, option in ipairs(pollOptions) do
@@ -192,6 +196,11 @@ addEventHandler("doShowPoll", rootElement,
 			guiLabelSetColor(optionLabels[index], layout.option.r, layout.option.g, layout.option.b)
 			guiSetAlpha(optionLabels[index], layout.option.alpha)
 			setElementParent(optionLabels[index], voteWindow)
+			
+			optionData[index] = { votes = 0 }
+			if ( rafalh_shared_res ) then
+				optionData[index].bar = call ( rafalh_shared_res, "createAnimatedProgressBar", layout.option.posX, labelY+optionHeight, layout.option.width, 8, false, false, false, voteWindow )
+			end
 			
 			labelY = labelY + optionHeight + layout.option.bottom_padding
 		end
@@ -257,6 +266,18 @@ addEventHandler("doShowPoll", rootElement,
 	end
 )
 
+addEventHandler("doUpdatePoll", rootElement, function ( options, allowed_count )
+	local rafalh_shared_res = getResourceFromName ( "rafalh_shared" )
+	if ( allowed_count > 0 ) then
+		for i, data in ipairs(optionData) do
+			optionData[i].votes = options[i] or optionData[i].votes
+			if ( rafalh_shared_res and optionData[i].bar ) then
+				call ( rafalh_shared_res, "setAnimatedProgressBarProgress", optionData[i].bar, optionData[i].votes/allowed_count*100, 1000 )
+			end
+		end
+	end
+end )
+
 addEventHandler("doStopPoll", rootElement,
 	function ()
 		isVoteActive = false
@@ -271,6 +292,11 @@ addEventHandler("doStopPoll", rootElement,
 		
 		removeEventHandler("onClientRender", rootElement, updateTime)
 		destroyElementToCache(voteWindow)
+		for i, data in ipairs(optionData) do
+			if ( data.bar ) then
+				destroyElement(data.bar)
+			end
+		end
 	end
 )
 
@@ -411,7 +437,6 @@ function guiCreateWindowFromCache(x, y, width, height, text, relative)
         guiSetPosition(window, x, y, relative)
         guiSetAlpha(window, 1)
         guiSetVisible(window, true)
-        guiBringToFront(window)
         return window
     end
 end

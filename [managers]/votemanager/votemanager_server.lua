@@ -306,7 +306,9 @@ function applyPollResults(chosenOption)
 	local result = triggerEvent("onPollEnd", thisResourceRoot, chosenOption)
 
 	if result == true then
-		outputVoteManager("Vote ended! ["..optionTable[1].."]",rootElement)
+		outputVoteManager({
+			"Vote ended! ["..optionTable[1].."]",
+			pl = "Głosowanie zakończone! ["..optionTable[1].."]"}, rootElement)
 		
 		local optionExecutorType = type(optionTable[2])
 		if optionExecutorType == "function" then --it is a function
@@ -349,11 +351,15 @@ addEventHandler("onClientSendVote", rootElement,
         if previousVote and voteID == previousVote then
 			return
 		end
-        
+		
+        local options_votes = {}
+		
 		--check if he just wants to cancel his vote
 		if voteID == -1 and previousVote then
 			if not activePoll.allowchange then
-				outputVoteManager("You are not allowed to cancel your vote.",client)
+				outputVoteManager({
+					"You are not allowed to cancel your vote.",
+					pl = "Nie wolno Ci anulować głosu."},client)
 				return false
 			end
 			
@@ -364,31 +370,42 @@ addEventHandler("onClientSendVote", rootElement,
 			activePoll.votedOption[getPlayerUserNameSafe(client)] = nil
 			activePoll.playersWhoVoted = activePoll.playersWhoVoted - 1
 			activePoll[previousVote].votes = activePoll[previousVote].votes - 1
-			return
-		end
-		
-		--else, check if he can change his vote
-		if previousVote then
-			if not activePoll.allowchange then
-				outputVoteManager("You are not allowed to change your vote.",client)
-				return false
-			end
-			if get("log_votes") then
-				outputServerLog(getPlayerName(client).." changed his vote to "..voteID.." ("..activePoll[voteID][1]..") from "..previousVote.." ("..activePoll[previousVote][1]..")")
-			end
-			activePoll[previousVote].votes = activePoll[previousVote].votes - 1
-			activePoll[voteID].votes = activePoll[voteID].votes + 1
+			options_votes[previousVote] = activePoll[previousVote].votes
 		else
-			if get("log_votes") then
-				outputServerLog(getPlayerName(client).." voted "..voteID.." ("..activePoll[voteID][1]..")")
+			--else, check if he can change his vote
+			if previousVote then
+				if not activePoll.allowchange then
+					outputVoteManager({
+						"You are not allowed to change your vote.",
+						pl = "Nie wolno Ci zmienić głosu."},client)
+					return false
+				end
+				if get("log_votes") then
+					outputServerLog(getPlayerName(client).." changed his vote to "..voteID.." ("..activePoll[voteID][1]..") from "..previousVote.." ("..activePoll[previousVote][1]..")")
+				end
+				activePoll[previousVote].votes = activePoll[previousVote].votes - 1
+				activePoll[voteID].votes = activePoll[voteID].votes + 1
+				options_votes[previousVote] = activePoll[previousVote].votes
+				options_votes[voteID] = activePoll[voteID].votes
+			else
+				if get("log_votes") then
+					outputServerLog(getPlayerName(client).." voted "..voteID.." ("..activePoll[voteID][1]..")")
+				end
+				activePoll[voteID].votes = activePoll[voteID].votes + 1
+				options_votes[voteID] = activePoll[voteID].votes
 			end
-			activePoll[voteID].votes = activePoll[voteID].votes + 1
+			
+			activePoll.playersWhoVoted = activePoll.playersWhoVoted + 1
+			activePoll.votedOption[getPlayerUserNameSafe(client)] = voteID
+
+			recheckVotes()
 		end
 		
-		activePoll.playersWhoVoted = activePoll.playersWhoVoted + 1
-		activePoll.votedOption[getPlayerUserNameSafe(client)] = voteID
-
-		recheckVotes()
+		if ( activePoll ) then -- is pool active (recheckVotes coult stop it)
+			for player in pairs(activePoll.allowedPlayers) do
+				triggerClientEvent(player, "doUpdatePoll", rootElement, options_votes, activePoll.maxVoters)
+			end
+		end
 	end
 )
 
@@ -400,6 +417,9 @@ addEventHandler("onPlayerJoin", rootElement,
 			activePoll.maxVoters = activePoll.maxVoters + 1
 			activePoll.allowedPlayers[source] = true
 			sendPoll(source)
+			for player in pairs(activePoll.allowedPlayers) do
+				triggerClientEvent(player, "doUpdatePoll", rootElement, {}, activePoll.maxVoters)
+			end
 		end
 	end
 )
@@ -412,11 +432,17 @@ addEventHandler("onPlayerQuit", rootElement,
 			activePoll.maxVoters = activePoll.maxVoters - 1
 			activePoll.allowedPlayers[source] = nil
 			--if he had voted, we'll have to substract his vote
+			local options_votes = {}
 			local voteID = activePoll.votedOption[getPlayerUserNameSafe(source)]
 			if voteID then
 				activePoll[voteID].votes = activePoll[voteID].votes - 1
 				activePoll.playersWhoVoted = activePoll.playersWhoVoted - 1
 				activePoll.votedOption[getPlayerUserNameSafe(source)] = nil
+				options_votes[voteID] = activePoll[voteID].votes
+			end
+
+			for player in pairs(activePoll.allowedPlayers) do
+				triggerClientEvent(player, "doUpdatePoll", rootElement, options_votes, activePoll.maxVoters)
 			end
 
 			recheckVotes()
@@ -430,9 +456,19 @@ function outputVoteManager(message, toElement)
 	if getElementType(toElement) == "console" then
 		outputServerLog(message)
 	else
-		outputChatBox(message, toElement, r, g, b)
+		if(type(message) ~= "table") then
+			message = {message}
+		end
+		
+		local players = getElementsByType ( "player", toElement )
+		for i, player in ipairs(players) do
+			local lang = getElementData(player, "lang")
+			
+			outputChatBox(message[lang] or message[1], player, r, g, b)
+		end
+		
 		if toElement == rootElement then
-			outputServerLog(message)
+			outputServerLog(message[1])
 		end
 	end
 end
