@@ -433,7 +433,7 @@ function voteKick(player, reason)
 			visibleTo = rootElement,
 			timeout = vote.kick.timeout,
 			allowchange = vote.kick.allowchange;
-			[1]={"Yes",kickPlayer,player,serverConsole,reason},
+			[1]={"Yes",kickPlayer,player,reason},
 			[2]={"No",outputVoteManager,"votekick: not enough votes to kick "..getPlayerName(player)..".",rootElement,vR,vG,vB;default=true},
 		}
 	end
@@ -453,7 +453,7 @@ function voteBan(player, reason)
 			visibleTo = rootElement,
 			timeout = vote.ban.timeout,
 			allowchange = vote.ban.allowchange;
-			[1]={"Yes",banPlayer,player,serverConsole,reason},
+			[1]={"Yes",banPlayer,player,true,false,false,rootElement,reason},
 			[2]={"No",outputVoteManager,"voteban: not enough votes to ban "..getPlayerName(player)..".",rootElement,vR,vG,vB;default=true},
 		}
 	end
